@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/fx"
@@ -25,10 +26,11 @@ func NewMongoDBConfig() *MongoDBConfig {
 }
 
 type MongoDBClient struct {
-	Client *mongo.Client
+	Client   *mongo.Client
+	Database *mongo.Database
 }
 
-func NewMongoDBClient(lc fx.Lifecycle, config *MongoDBConfig) (*MongoDBClient, error) {
+func NewMongoDBClient(lc fx.Lifecycle, config *MongoDBConfig) (*MongoDBClient, *mongo.Database, error) {
 	clientOptions := options.Client().ApplyURI(config.URI)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -55,12 +57,27 @@ func NewMongoDBClient(lc fx.Lifecycle, config *MongoDBConfig) (*MongoDBClient, e
 			return client.Disconnect(Stopctx)
 		},
 	})
-	return &MongoDBClient{Client: client}, nil
+	db := client.Database("exam_seat_planner")
+	return &MongoDBClient{Client: client, Database: db}, db, nil
+}
+
+func UniqueCMSIndex(collection *mongo.Collection) {
+	indexmodel := mongo.IndexModel{
+		Keys:    bson.M{"cms_id": 1},
+		Options: options.Index().SetUnique(true),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	_, err := collection.Indexes().CreateOne(ctx, indexmodel)
+	if err != nil {
+		log.Fatal("Failed to create unique index of CMS ID:", err)
+	}
+
+	log.Println("Unique Index on CMS ID created successfully")
 }
 
 func (c *MongoDBClient) GetCollection(collectionName string) *mongo.Collection {
 	return c.Client.Database("exam_seat_planner").Collection(collectionName)
 }
-
-var MongoModule = fx.Module("mongo",
-	fx.Provide(NewMongoDBConfig, NewMongoDBClient))

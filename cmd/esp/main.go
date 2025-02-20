@@ -2,8 +2,7 @@ package main
 
 import (
 	"ExamSeatPlanner/internal/bootstrap"
-	"ExamSeatPlanner/internal/config"
-	"log"
+	pkg "ExamSeatPlanner/pkg/routes"
 
 	"go.uber.org/fx"
 )
@@ -11,11 +10,7 @@ import (
 func main() {
 	bootstrap.Loadenv()
 	app := fx.New(
-		config.MongoModule,
-		fx.Invoke(func(client *config.MongoDBClient) {
-			userCollection := client.GetCollection("users")
-			log.Println("User collection ready:", userCollection.Name())
-		}),
+		pkg.EchoModules,
 	)
 
 	app.Run()
