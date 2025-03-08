@@ -8,6 +8,8 @@ type User struct {
 	Name         string             `bson:"name"`
 	Email        string             `bson:"email"`
 	PasswordHash string             `bson:"password_hash"`
+	Verified     bool               `bson:"verified"`
+	ResetToken   string             `bson:"reset_token,omitempty"`
 }
 
 type RegisterRequest struct {
@@ -20,4 +22,17 @@ type RegisterRequest struct {
 type Credential struct {
 	CMSID    string `json:"cms_id"`
 	Password string `json:"password"`
+}
+
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
 }

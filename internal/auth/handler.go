@@ -42,6 +42,42 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
 }
 
+func (h *AuthHandler) VerifyEmail(c echo.Context) error {
+	var req VerifyEmailRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid Request"})
+	}
+	err := h.service.VerifyEmail(context.Background(), req.Token)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Email Verified successfully"})
+}
+
+func (h *AuthHandler) ForgotPassword(c echo.Context) error {
+	var req ForgotPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+	err := h.service.ForgotPassword(context.Background(), req.Email)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Password reset Email sent"})
+}
+
+func (h *AuthHandler) ResetPassword(c echo.Context) error {
+	var req ResetPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+	err := h.service.ResetPassword(context.Background(), req.Token, req.NewPassword)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Password successfully reset"})
+}
+
 func (h *AuthHandler) Profile(c echo.Context) error {
 	claims := c.Get("user").(*JWTClaims)
 	log.Println("Profile requested for user:", claims)
