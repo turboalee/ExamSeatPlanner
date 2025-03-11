@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+
 )
 
 var jwtKey = []byte(os.Getenv("JWT_KEY"))
@@ -16,11 +17,11 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(cmsID string) (string, error) {
+func GenerateJWT(cmsID string, duration time.Duration) (string, error) {
 	claims := &JWTClaims{
 		CMSID: cmsID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -28,7 +29,7 @@ func GenerateJWT(cmsID string) (string, error) {
 }
 
 func ValidateJWT(tokenString string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -38,13 +39,15 @@ func ValidateJWT(tokenString string) (string, error) {
 		return "", err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		if cmsID, ok := claims["cms_id"].(string); ok {
-			return cmsID, nil
-		}
-		return "", errors.New("Invalid token claims")
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok || !token.Valid {
+		return "", errors.New("Invalid token")
 	}
-	return "", errors.New("Invalid Token")
+
+	if claims.ExpiresAt.Before(time.Now()) {
+		return "", errors.New("Token expired")
+	}
+	return claims.CMSID, nil
 }
 
 func GetJWTKey() []byte {

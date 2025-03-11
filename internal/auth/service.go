@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -52,7 +53,7 @@ func (s *UserService) RegisterUser(ctx context.Context, req RegisterRequest) err
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return err
 	}
-	token, _ := GenerateJWT(user.CMSID)
+	token, _ := GenerateJWT(user.CMSID, time.Hour*24)
 	err = s.authService.SendVerificationEmail(user.Email, token)
 	if err != nil {
 		return err
@@ -64,15 +65,15 @@ func (s *UserService) RegisterUser(ctx context.Context, req RegisterRequest) err
 func (s *UserService) AuthenticateUser(ctx context.Context, cred Credential) (string, error) {
 	user, err := s.repo.FindByCMS(ctx, cred.CMSID)
 
-	if err != nil {
+	if err != nil || !CheckPasswordHash(cred.Password, user.PasswordHash) {
 		return "", errors.New("Invalid Credentials")
 	}
 
-	if !CheckPasswordHash(cred.Password, user.PasswordHash) {
-		return "", errors.New("Invalid Credentials")
+	if !user.Verified {
+		return "", errors.New(("Email not verified"))
 	}
 
-	token, err := GenerateJWT(user.CMSID)
+	token, err := GenerateJWT(user.CMSID, time.Minute*10)
 	if err != nil {
 		return "", errors.New("Token not generated")
 	}
@@ -96,7 +97,7 @@ func (s *UserService) ForgotPassword(ctx context.Context, email string) error {
 	if err != nil || user == nil {
 		return errors.New("User not found")
 	}
-	resetToken, _ := GenerateJWT(user.CMSID)
+	resetToken, _ := GenerateJWT(user.CMSID, time.Minute*15)
 	user.ResetToken = resetToken
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
 		return err
