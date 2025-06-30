@@ -32,13 +32,14 @@ func (h *AuthHandler) Register(c echo.Context) error {
 func (h *AuthHandler) Login(c echo.Context) error {
 	var cred Credential
 	if err := c.Bind(&cred); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid Request"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
 	token, err := h.service.AuthenticateUser(context.Background(), cred)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	}
+
 	return c.JSON(http.StatusOK, map[string]string{"token": token})
 }
 
@@ -83,6 +84,8 @@ func (h *AuthHandler) Profile(c echo.Context) error {
 	log.Println("Profile requested for user:", claims)
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "Authenticated User",
-		"cms_id":  claims.CMSID,
+		"email":   claims.Email,
+		"role":    claims.Role,
+		"faculty": claims.Faculty,
 	})
 }

@@ -7,19 +7,28 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-
 )
 
 var jwtKey = []byte(os.Getenv("JWT_KEY"))
 
 type JWTClaims struct {
-	CMSID string `json:"cms_id"`
+	Email      string `json:"email"`            // Primary identifier for staff/admin, secondary for students
+	CMSID      string `json:"cms_id,omitempty"` // CMS ID only for students, omit for staff/admin
+	Role       string `json:"role"`             // Role is needed for RBAC in protected endpoints
+	Faculty    string `json:"faculty"`          // Faculty is needed for notification and grouping
+	Department string `json:"department"`       // Department is needed for seating/grouping in protected endpoints
+	Batch      string `json:"batch"`            // Batch is needed for seating/grouping in protected endpoints
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(cmsID string, duration time.Duration) (string, error) {
+func GenerateJWT(email, cmsID, role, faculty, department, batch string, duration time.Duration) (string, error) {
 	claims := &JWTClaims{
-		CMSID: cmsID,
+		Email:      email,
+		CMSID:      cmsID,
+		Role:       role,
+		Faculty:    faculty,
+		Department: department,
+		Batch:      batch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 		},
@@ -47,7 +56,7 @@ func ValidateJWT(tokenString string) (string, error) {
 	if claims.ExpiresAt.Before(time.Now()) {
 		return "", errors.New("Token expired")
 	}
-	return claims.CMSID, nil
+	return claims.Email, nil
 }
 
 func GetJWTKey() []byte {

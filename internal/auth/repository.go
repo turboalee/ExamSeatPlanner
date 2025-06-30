@@ -61,3 +61,17 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *User) error {
 	_, err := r.collection.UpdateOne(ctx, filter, update)
 	return err
 }
+
+// FindByRolesAndFaculties finds users matching any of the given roles and faculties.
+func (r *UserRepository) FindByRolesAndFaculties(ctx context.Context, roles, faculties []string) ([]*User, error) {
+	filter := bson.M{"role": bson.M{"$in": roles}, "faculty": bson.M{"$in": faculties}}
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	var users []*User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
