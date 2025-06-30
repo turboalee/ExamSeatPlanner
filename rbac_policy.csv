@@ -1,0 +1,6 @@
+p, admin, /api/seating/generate, POST
+p, admin, /api/seating/exams, POST
+p, admin, /api/seating/rooms, POST
+p, admin, /api/seating/invigilators, POST
+p, staff, /api/seating/students, POST
+p, student, /api/seating/plans, GET 
