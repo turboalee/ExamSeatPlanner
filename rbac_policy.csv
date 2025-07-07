@@ -1,6 +1,50 @@
-p, admin, /api/seating/generate, POST
-p, admin, /api/seating/exams, POST
-p, admin, /api/seating/rooms, POST
-p, admin, /api/seating/invigilators, POST
-p, staff, /api/seating/students, POST
-p, student, /api/seating/plans, GET 
+p, admin, /api/seating/plans, GET, allow
+p, admin, /api/seating/plans/*, GET, allow
+p, admin, /api/seating/exams, POST, allow
+p, admin, /api/seating/rooms, POST, allow
+p, admin, /api/seating/rooms, PUT, allow
+p, admin, /api/seating/rooms/*, PUT, allow
+p, admin, /api/seating/rooms, DELETE, allow
+p, admin, /api/seating/rooms/*, DELETE, allow
+p, admin, /api/seating/exam-rooms, POST, allow
+p, admin, /api/seating/exam-rooms/invigilators, POST, allow
+p, admin, /api/seating/generate, POST, allow
+p, admin, /api/seating/exams, GET, allow
+p, admin, /api/seating/exams, DELETE, allow
+p, admin, /api/seating/exams/*, DELETE, allow
+p, admin, /api/seating/exams/*, PUT, allow
+p, admin, /api/seating/exams/*, GET, allow
+p, admin, /api/seating/exams/*/rooms, GET, allow
+p, admin, /api/seating/rooms, GET, allow
+p, admin, /api/seating/students, GET, allow
+p, admin, /api/seating/student-lists, GET, allow
+p, admin, /api/seating/student-lists/faculty,GET,allow
+p, admin, /api/seating/invigilators, GET, allow
+p, admin, /api/seating/my-plans, GET, allow
+p, admin, /api/profile, GET, allow
+p, admin, /api/seating/plans/:id, DELETE, allow
+p, admin, /api/seating/plans/*, DELETE, allow
+p, admin, /api/seating/student-lists, DELETE, allow
+p, admin, /api/seating/student-lists/*, DELETE, allow
+p, admin, /api/seating/student-lists, PUT, allow
+p, admin, /api/seating/student-lists/*, PUT, allow
+p, admin, /api/seating/student-lists/*/students, POST, allow
+p, staff, /api/seating/student-lists, POST, allow
+p, staff, /api/seating/student-lists, GET, allow
+p, staff, /api/seating/exams, GET, allow
+p, staff, /api/seating/rooms, GET, allow
+p, staff, /api/seating/rooms, PUT, allow
+p, staff, /api/seating/rooms/*, PUT, allow
+p, staff, /api/seating/rooms, DELETE, allow
+p, staff, /api/seating/rooms/*, DELETE, allow
+p, staff, /api/seating/students, GET, allow
+p, staff, /api/seating/invigilators, GET, allow
+p, staff, /api/profile, GET, allow
+p, student, /api/seating/my-plans, GET, allow
+p, student, /api/profile, GET, allow
+p, admin, /api/notifications/schedule, POST, allow
+p, admin, /api/notifications/schedule, GET, allow
+p, admin, /api/notifications, GET, allow
+p, admin, /api/notifications/:id, DELETE, allow
+p, admin, /api/notifications/*, DELETE, allow
+

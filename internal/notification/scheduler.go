@@ -3,8 +3,6 @@ package notification
 import (
 	"context"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/fx"
@@ -22,23 +20,15 @@ func NewNotificationScheduler(service *NotificationService) *NotificationSchedul
 
 // StartScheduler starts the background goroutine to periodically check and send due notifications.
 func (s *NotificationScheduler) StartScheduler(lc fx.Lifecycle) {
-	// Get scheduler interval from environment, default to 1 minute
-	intervalStr := os.Getenv("NOTIFICATION_SCHEDULER_INTERVAL_MINUTES")
-	interval := 1 // Default to 1 minute
-	if intervalStr != "" {
-		if parsed, err := strconv.Atoi(intervalStr); err == nil && parsed > 0 {
-			interval = parsed
-		}
-	}
-
+	// Restore scheduler interval to 1 minute
+	interval := 1 // minute
 	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
 	done := make(chan bool)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			log.Printf("Starting notification scheduler (checking every %d minutes)...", interval)
+			log.Printf("Starting notification scheduler (checking every %d minute(s))...", interval)
 			go func() {
-				// Create a new context for the goroutine that won't be cancelled
 				schedulerCtx := context.Background()
 				for {
 					select {

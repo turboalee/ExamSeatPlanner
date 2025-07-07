@@ -81,13 +81,44 @@ func RegisterRoutes(e *echo.Echo, authHandler *auth.AuthHandler, notificationHan
 
 	// Notification routes (admin only)
 	protected.POST("/notifications/schedule", notificationHandler.ScheduleNotification)
+	protected.GET("/notifications", notificationHandler.ListNotifications)
+	protected.DELETE("/notifications/:id", notificationHandler.DeleteNotification)
 
 	// Seating routes
 	seating := protected.Group("/seating")
 	seating.POST("/generate", seatingHandler.GenerateSeatingPlan)   // Admin only
 	seating.GET("/plans/:id", seatingHandler.GetSeatingPlan)        // All authenticated users
 	seating.POST("/exams", seatingHandler.CreateExam)               // Admin only
+	seating.DELETE("/exams/:id", seatingHandler.DeleteExam)         // Admin only
+	seating.PUT("/exams/:id", seatingHandler.UpdateExam)            // Admin only
 	seating.POST("/rooms", seatingHandler.CreateRoom)               // Admin only
 	seating.POST("/students", seatingHandler.CreateStudent)         // Staff only
 	seating.POST("/invigilators", seatingHandler.CreateInvigilator) // Admin only
+
+	// New student list management routes
+	seating.POST("/student-lists", seatingHandler.UploadStudentList)                               // Staff only
+	seating.GET("/student-lists", seatingHandler.GetAllStudentLists)                               // All authenticated users
+	seating.GET("/student-lists/faculty", seatingHandler.GetStudentListsByFaculty)                 // Admin only
+	seating.DELETE("/student-lists/:id", seatingHandler.DeleteStudentList)                         // Admin only
+	seating.PUT("/student-lists/:id", seatingHandler.UpdateStudentList)                            // Admin only
+	seating.POST("/student-lists/:id/students", seatingHandler.AddStudentToList)                   // Admin only
+	seating.PUT("/student-lists/:id/students/:studentId", seatingHandler.UpdateStudentInList)      // Admin only
+	seating.DELETE("/student-lists/:id/students/:studentId", seatingHandler.RemoveStudentFromList) // Admin only
+	seating.GET("/invigilators", seatingHandler.GetAllInvigilators)                                // All authenticated users
+
+	// New exam room management routes
+	seating.POST("/exam-rooms", seatingHandler.AddRoomToExam)                      // Admin only
+	seating.POST("/exam-rooms/invigilators", seatingHandler.AddInvigilatorToRoom)  // Admin only
+	seating.POST("/exam-rooms/clear/:examId", seatingHandler.ClearRoomAssignments) // Admin only
+	seating.GET("/exams/:examId/rooms", seatingHandler.GetExamRooms)               // All authenticated users
+	seating.DELETE("/rooms/:id", seatingHandler.DeleteRoom)                        // Admin only
+	seating.PUT("/rooms/:id", seatingHandler.UpdateRoom)                           // Admin only
+
+	// New GET endpoints for lists
+	seating.GET("/exams", seatingHandler.GetAllExams)
+	seating.GET("/rooms", seatingHandler.GetAllRooms)
+	seating.GET("/students", seatingHandler.GetAllStudents)
+	seating.GET("/plans", seatingHandler.GetAllSeatingPlans)       // All authenticated users
+	seating.GET("/my-plans", seatingHandler.GetMySeatingPlans)     // Students only
+	seating.DELETE("/plans/:id", seatingHandler.DeleteSeatingPlan) // Admin only
 }

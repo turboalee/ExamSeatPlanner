@@ -3,6 +3,7 @@ module ExamSeatPlanner
 go 1.23.3
 
 require (
+	github.com/casbin/casbin/v2 v2.108.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.3
@@ -13,7 +14,6 @@ require (
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
-	github.com/casbin/casbin/v2 v2.108.0 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect

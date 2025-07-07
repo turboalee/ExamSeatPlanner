@@ -12,6 +12,7 @@ import (
 var jwtKey = []byte(os.Getenv("JWT_KEY"))
 
 type JWTClaims struct {
+	Name       string `json:"name"`
 	Email      string `json:"email"`            // Primary identifier for staff/admin, secondary for students
 	CMSID      string `json:"cms_id,omitempty"` // CMS ID only for students, omit for staff/admin
 	Role       string `json:"role"`             // Role is needed for RBAC in protected endpoints
@@ -21,8 +22,9 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(email, cmsID, role, faculty, department, batch string, duration time.Duration) (string, error) {
+func GenerateJWT(name, email, cmsID, role, faculty, department, batch string, duration time.Duration) (string, error) {
 	claims := &JWTClaims{
+		Name:       name,
 		Email:      email,
 		CMSID:      cmsID,
 		Role:       role,
@@ -50,11 +52,11 @@ func ValidateJWT(tokenString string) (string, error) {
 
 	claims, ok := token.Claims.(*JWTClaims)
 	if !ok || !token.Valid {
-		return "", errors.New("Invalid token")
+		return "", errors.New("invalid token")
 	}
 
 	if claims.ExpiresAt.Before(time.Now()) {
-		return "", errors.New("Token expired")
+		return "", errors.New("token expired")
 	}
 	return claims.Email, nil
 }

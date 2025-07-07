@@ -80,12 +80,17 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 }
 
 func (h *AuthHandler) Profile(c echo.Context) error {
-	claims := c.Get("user").(*JWTClaims)
+	user := c.Get("user")
+	claims, ok := user.(*JWTClaims)
+	if !ok || claims == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or missing token"})
+	}
 	log.Println("Profile requested for user:", claims)
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "Authenticated User",
 		"email":   claims.Email,
 		"role":    claims.Role,
 		"faculty": claims.Faculty,
+		"name":    claims.Name, // Add name to profile response
 	})
 }

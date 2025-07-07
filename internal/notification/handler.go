@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"time"
 
+	"ExamSeatPlanner/internal/auth"
+
 	"github.com/labstack/echo/v4"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // NotificationHandler handles HTTP requests for notifications.
@@ -53,4 +56,37 @@ func (h *NotificationHandler) ScheduleNotification(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]string{"message": "Notification scheduled successfully"})
 }
 
-// Why: This handler provides the HTTP interface for scheduling notifications, with validation to ensure send times are in the future. 
+// ListNotifications handles GET /api/notifications
+func (h *NotificationHandler) ListNotifications(c echo.Context) error {
+	claims, ok := c.Get("user").(*auth.JWTClaims)
+	if !ok || claims == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	faculty := claims.Faculty
+	role := claims.Role
+	// Optionally, allow admin to see all, or filter by faculty/role
+	notifications, err := h.service.ListNotifications(c.Request().Context(), faculty, role)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch notifications"})
+	}
+	return c.JSON(http.StatusOK, notifications)
+}
+
+// DeleteNotification handles DELETE /api/notifications/:id
+func (h *NotificationHandler) DeleteNotification(c echo.Context) error {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return c.JSON(400, map[string]string{"error": "Invalid notification id"})
+	}
+	err = h.service.DeleteNotification(c.Request().Context(), objID)
+	if err != nil {
+		if err.Error() == "not found" {
+			return c.JSON(404, map[string]string{"error": "Notification not found"})
+		}
+		return c.JSON(500, map[string]string{"error": "Failed to delete notification: " + err.Error()})
+	}
+	return c.JSON(200, map[string]string{"message": "Notification deleted successfully"})
+}
+
+// Why: This handler provides the HTTP interface for scheduling notifications, with validation to ensure send times are in the future.
