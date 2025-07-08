@@ -253,6 +253,17 @@ func (h *SeatingHandler) UploadStudentList(c echo.Context) error {
 	if req.Department == "" || req.Batch == "" || req.Faculty == "" || len(req.Students) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing required fields"})
 	}
+	// If UploadedBy is empty or 'unknown', set it from JWT claims
+	if req.UploadedBy == "" || req.UploadedBy == "unknown" {
+		user := c.Get("user")
+		if user != nil {
+			if claims, ok := user.(map[string]interface{}); ok {
+				if email, ok := claims["email"].(string); ok && email != "" {
+					req.UploadedBy = email
+				}
+			}
+		}
+	}
 	// Only keep student_id and name for each student
 	students := make([]Student, 0, len(req.Students))
 	for _, s := range req.Students {

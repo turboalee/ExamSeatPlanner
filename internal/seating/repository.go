@@ -509,6 +509,9 @@ func (r *SeatingRepository) GetAllSeatingPlans(ctx context.Context) ([]*SeatingP
 	if err := cursor.All(ctx, &plans); err != nil {
 		return nil, err
 	}
+	if plans == nil {
+		plans = []*SeatingPlan{}
+	}
 	return plans, nil
 }
 

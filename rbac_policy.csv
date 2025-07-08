@@ -40,6 +40,9 @@ p, staff, /api/seating/rooms/*, DELETE, allow
 p, staff, /api/seating/students, GET, allow
 p, staff, /api/seating/invigilators, GET, allow
 p, staff, /api/profile, GET, allow
+p, staff, /api/seating/plans, GET, allow
+p, staff, /api/seating/exams/*/rooms, GET, allow
+p, staff, /api/seating/plans/*, GET, allow
 p, student, /api/seating/my-plans, GET, allow
 p, student, /api/profile, GET, allow
 p, admin, /api/notifications/schedule, POST, allow
