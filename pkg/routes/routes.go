@@ -70,7 +70,7 @@ func StartNotificationScheduler(scheduler *notification.NotificationScheduler, l
 func RegisterRoutes(e *echo.Echo, authHandler *auth.AuthHandler, notificationHandler *notification.NotificationHandler, seatingHandler *seating.SeatingHandler) {
 	e.POST("/register", authHandler.Register)
 	e.POST("/login", authHandler.Login)
-	e.POST("/forgot-Password", authHandler.ForgotPassword)
+	e.POST("/forgot-password", authHandler.ForgotPassword)
 	e.POST("/verify-email", authHandler.VerifyEmail)
 	e.POST("/reset-password", authHandler.ResetPassword)
 

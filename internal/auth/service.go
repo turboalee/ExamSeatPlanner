@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -206,14 +207,20 @@ func (s *UserService) ResetPassword(ctx context.Context, token, newPassword stri
 
 func (a *AuthService) SendVerificationEmail(email, token string) error {
 	subject := "Email Verification"
-	body := fmt.Sprintf("Click the link to verify your email: https://yourdomain.com/verify-email?token=%s", token)
-
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173" // fallback for dev
+	}
+	body := fmt.Sprintf("Click the link to verify your email: %s/verify-email?token=%s", frontendURL, token)
 	return a.EmailService.SendEmail(email, subject, body)
 }
 
 func (a *AuthService) SendResetPasswordEmail(email, token string) error {
 	subject := "Password Reset"
-	body := fmt.Sprintf("Click the link to reset your password: https://yourdomain.com/reset-password?token=%s", token)
-
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173" // fallback for dev
+	}
+	body := fmt.Sprintf("Click the link to reset your password: %s/reset-password?token=%s", frontendURL, token)
 	return a.EmailService.SendEmail(email, subject, body)
 }

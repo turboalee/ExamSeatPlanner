@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -85,12 +84,19 @@ func (h *AuthHandler) Profile(c echo.Context) error {
 	if !ok || claims == nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or missing token"})
 	}
-	log.Println("Profile requested for user:", claims)
-	return c.JSON(http.StatusOK, map[string]string{
+	// Look up the user in the database to get their MongoDB ID
+	ctx := c.Request().Context()
+	foundUser, err := h.service.repo.FindByEmail(ctx, claims.Email)
+	if err != nil || foundUser == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "User not found"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Authenticated User",
 		"email":   claims.Email,
 		"role":    claims.Role,
 		"faculty": claims.Faculty,
-		"name":    claims.Name, // Add name to profile response
+		"name":    claims.Name,
+		"_id":     foundUser.ID.Hex(), // Add MongoDB ObjectID as string
+		"cms_id":  foundUser.CMSID,    // Add CMSID for students
 	})
 }
