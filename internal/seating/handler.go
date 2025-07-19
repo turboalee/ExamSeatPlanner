@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"reflect"
 	"time"
 
 	"ExamSeatPlanner/internal/auth"
@@ -100,8 +101,8 @@ func (h *SeatingHandler) GenerateSeatingPlan(c echo.Context) error {
 	}
 
 	// Validate algorithm
-	if req.Algorithm != "matrix" && req.Algorithm != "parallel" && req.Algorithm != "random" && req.Algorithm != "snake" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid algorithm. Must be matrix, parallel, random, or snake"})
+	if req.Algorithm != "parallel" && req.Algorithm != "simple" && req.Algorithm != "separated" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid algorithm. Must be 'parallel', 'simple', or 'separated'"})
 	}
 
 	// Convert string IDs to ObjectIDs
@@ -245,7 +246,6 @@ func (h *SeatingHandler) UploadStudentList(c echo.Context) error {
 		Batch      string    `json:"batch"`
 		Faculty    string    `json:"faculty"`
 		Students   []Student `json:"students"`
-		UploadedBy string    `json:"uploaded_by"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
@@ -253,16 +253,32 @@ func (h *SeatingHandler) UploadStudentList(c echo.Context) error {
 	if req.Department == "" || req.Batch == "" || req.Faculty == "" || len(req.Students) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Missing required fields"})
 	}
-	// If UploadedBy is empty or 'unknown', set it from JWT claims
-	if req.UploadedBy == "" || req.UploadedBy == "unknown" {
-		user := c.Get("user")
-		if user != nil {
-			if claims, ok := user.(map[string]interface{}); ok {
-				if email, ok := claims["email"].(string); ok && email != "" {
-					req.UploadedBy = email
+	// Robustly extract email from JWT claims (map or struct)
+	user := c.Get("user")
+	var uploadedBy string
+	switch u := user.(type) {
+	case map[string]interface{}:
+		if email, ok := u["email"].(string); ok && email != "" {
+			uploadedBy = email
+		}
+	default:
+		// Try reflection for struct with Email field
+		v := reflect.ValueOf(user)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.Kind() == reflect.Struct {
+			emailField := v.FieldByName("Email")
+			if emailField.IsValid() && emailField.Kind() == reflect.String {
+				email := emailField.String()
+				if email != "" {
+					uploadedBy = email
 				}
 			}
 		}
+	}
+	if uploadedBy == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Could not determine uploader from authentication context"})
 	}
 	// Only keep student_id and name for each student
 	students := make([]Student, 0, len(req.Students))
@@ -280,7 +296,7 @@ func (h *SeatingHandler) UploadStudentList(c echo.Context) error {
 		Faculty:    req.Faculty,
 		Name:       listName,
 		Students:   students,
-		UploadedBy: req.UploadedBy,
+		UploadedBy: uploadedBy,
 	}
 	if err := h.service.repo.CreateStudentList(c.Request().Context(), &studentList); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save student list"})
@@ -716,6 +732,9 @@ func (h *SeatingHandler) GetMySeatingPlans(c echo.Context) error {
 	plans, err := h.service.GetSeatingPlansByStudentID(c.Request().Context(), studentID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch plans"})
+	}
+	if plans == nil {
+		plans = []*SeatingPlan{} // Return empty array if no plans found
 	}
 	return c.JSON(http.StatusOK, plans)
 }

@@ -59,7 +59,7 @@ func (s *SeatingService) GenerateSeatingPlan(ctx context.Context, examID, _ prim
 		var studentsForRoom []StudentWithGroup
 		for _, list := range studentLists {
 			for _, student := range list.Students {
-				if student.StudentID != "" && !assignedStudentIDs[student.StudentID] {
+				if student.StudentID != "" {
 					studentsForRoom = append(studentsForRoom, StudentWithGroup{
 						StudentID:  student.StudentID,
 						Name:       student.Name,
@@ -69,6 +69,12 @@ func (s *SeatingService) GenerateSeatingPlan(ctx context.Context, examID, _ prim
 				}
 			}
 		}
+		// Debug log: print all students being assigned to this room
+		var ids []string
+		for _, s := range studentsForRoom {
+			ids = append(ids, s.StudentID)
+		}
+		fmt.Printf("[DEBUG] StudentIDs for room %s: %+v\n", room.Name, ids)
 		// Only assign up to room capacity
 		if len(studentsForRoom) > room.Capacity {
 			studentsForRoom = studentsForRoom[:room.Capacity]
@@ -118,16 +124,18 @@ func (s *SeatingService) GenerateSeatingPlan(ctx context.Context, examID, _ prim
 		if len(roomStudents) > 0 {
 			// Generate seats for this room using the specified algorithm
 			switch algorithm {
-			case "matrix":
-				seats = s.generateMatrixSeating(room, roomStudents)
 			case "parallel":
 				seats = s.generateParallelSeating(room, roomStudents)
-			case "random":
+			case "simple":
 				seats = s.generateRandomSeating(room, roomStudents)
-			case "snake":
-				seats = s.generateSnakeSeating(room, roomStudents)
+			case "separated":
+				var err error
+				seats, err = s.generateSnakeSeating(room, roomStudents)
+				if err != nil {
+					return nil, err
+				}
 			default:
-				return nil, errors.New("invalid algorithm specified")
+				return nil, errors.New("invalid algorithm specified: must be 'parallel', 'simple', or 'separated'")
 			}
 		} else {
 			// Create empty seats for this room
@@ -335,75 +343,9 @@ type StudentWithGroup struct {
 	Batch      string
 }
 
-// generateMatrixSeating arranges students diagonally, alternating departments if possible.
-func (s *SeatingService) generateMatrixSeating(room *Room, students []StudentWithGroup) []Seat {
-	seats := make([]Seat, room.Rows*room.Columns)
-	// Group students by department
-	deptMap := map[string][]StudentWithGroup{}
-	var depts []string
-	for _, student := range students {
-		if _, ok := deptMap[student.Department]; !ok {
-			depts = append(depts, student.Department)
-		}
-		deptMap[student.Department] = append(deptMap[student.Department], student)
-	}
-	// Interleave students by department as long as possible
-	var interleaved []StudentWithGroup
-	maxLen := 0
-	for _, d := range depts {
-		if len(deptMap[d]) > maxLen {
-			maxLen = len(deptMap[d])
-		}
-	}
-	used := make(map[string]bool)
-	for i := 0; i < maxLen; i++ {
-		for _, d := range depts {
-			if i < len(deptMap[d]) {
-				stu := deptMap[d][i]
-				if !used[stu.StudentID] {
-					interleaved = append(interleaved, stu)
-					used[stu.StudentID] = true
-				}
-			}
-		}
-	}
-	// Add any remaining students (not already used) linearly
-	for _, s := range students {
-		if !used[s.StudentID] {
-			interleaved = append(interleaved, s)
-			used[s.StudentID] = true
-		}
-	}
-	// Fill seats row by row, left to right, with the interleaved list
-	n := len(interleaved)
-	studentIndex := 0
-	for i := 0; i < room.Rows && studentIndex < n; i++ {
-		for j := 0; j < room.Columns && studentIndex < n; j++ {
-			seatIndex := i*room.Columns + j
-			seats[seatIndex] = Seat{
-				Row:       i + 1,
-				Column:    j + 1,
-				StudentID: interleaved[studentIndex].StudentID,
-				IsEmpty:   false,
-			}
-			studentIndex++
-		}
-	}
-	// Mark remaining seats as empty
-	for i := studentIndex; i < room.Rows*room.Columns; i++ {
-		row := i / room.Columns
-		col := i % room.Columns
-		seats[i] = Seat{
-			Row:     row + 1,
-			Column:  col + 1,
-			IsEmpty: true,
-		}
-	}
-	return seats
-}
-
 // generateParallelSeating arranges students by department per column.
 func (s *SeatingService) generateParallelSeating(room *Room, students []StudentWithGroup) []Seat {
+	fmt.Printf("[DEBUG] generateParallelSeating CALLED for room: %s with %d students\n", room.Name, len(students))
 	seats := make([]Seat, room.Rows*room.Columns)
 	// Group students by department
 	deptMap := map[string][]StudentWithGroup{}
@@ -432,139 +374,205 @@ func (s *SeatingService) generateParallelSeating(room *Room, students []StudentW
 				seats[seatIndex] = Seat{
 					Row:       i + 1,
 					Column:    j + 1,
-					StudentID: s.StudentID,
+					StudentID: s.StudentID, // Always set StudentID
 					IsEmpty:   false,
 				}
 				colStudentIdx[dept]++
 				studentIndex++
 			} else {
 				seats[seatIndex] = Seat{
-					Row:     i + 1,
-					Column:  j + 1,
-					IsEmpty: true,
+					Row:       i + 1,
+					Column:    j + 1,
+					StudentID: "", // Explicitly set to empty string
+					IsEmpty:   true,
 				}
 			}
 		}
 	}
+	// Debug log
+	fmt.Printf("[DEBUG] generateParallelSeating: first 5 seats: %+v\n", seats[:min(5, len(seats))])
+	var studentIDs []string
+	for i := 0; i < min(5, len(seats)); i++ {
+		studentIDs = append(studentIDs, seats[i].StudentID)
+	}
+	fmt.Printf("[DEBUG] generateParallelSeating: first 5 seat StudentIDs: %+v\n", studentIDs)
+	// Debug log
+	fmt.Printf("[DEBUG] generateParallelSeating: ALL seat StudentIDs for room %s: %+v\n", room.Name, studentIDs)
 	return seats
 }
 
-// generateRandomSeating arranges students randomly, avoiding adjacent same-department if possible.
+// generateRandomSeating arranges students in a classic snake/serpentine (row-wise, alternating direction) order, interleaving departments in round-robin order, with no adjacency constraints.
 func (s *SeatingService) generateRandomSeating(room *Room, students []StudentWithGroup) []Seat {
+	fmt.Printf("[DEBUG] generateRandomSeating (classic snake/serpentine, round-robin interleaving) CALLED for room: %s with %d students\n", room.Name, len(students))
 	seats := make([]Seat, room.Rows*room.Columns)
-	// Shuffle students
-	rand.Seed(time.Now().UnixNano())
-	shuffled := make([]StudentWithGroup, len(students))
-	copy(shuffled, students)
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
-	// Fill seats row by row with the shuffled list
-	studentIndex := 0
-	for i := 0; i < room.Rows && studentIndex < len(shuffled); i++ {
-		for j := 0; j < room.Columns && studentIndex < len(shuffled); j++ {
-			seatIndex := i*room.Columns + j
-			seats[seatIndex] = Seat{
-				Row:       i + 1,
-				Column:    j + 1,
-				StudentID: shuffled[studentIndex].StudentID,
-				IsEmpty:   false,
-			}
-			studentIndex++
-		}
-	}
-	// Mark remaining seats as empty
-	for i := studentIndex; i < room.Rows*room.Columns; i++ {
-		row := i / room.Columns
-		col := i % room.Columns
-		seats[i] = Seat{
-			Row:     row + 1,
-			Column:  col + 1,
-			IsEmpty: true,
-		}
-	}
-	return seats
-}
-
-// generateSnakeSeating arranges students in a serpentine (left-to-right, right-to-left) pattern, interleaving by department as much as possible.
-func (s *SeatingService) generateSnakeSeating(room *Room, students []StudentWithGroup) []Seat {
-	seats := make([]Seat, room.Rows*room.Columns)
-	// Interleave students by department (same as matrix)
+	// Group students by department
 	deptMap := map[string][]StudentWithGroup{}
 	var depts []string
-	for _, student := range students {
-		if _, ok := deptMap[student.Department]; !ok {
-			depts = append(depts, student.Department)
-		}
-		deptMap[student.Department] = append(deptMap[student.Department], student)
-	}
-	// Interleave
-	var interleaved []StudentWithGroup
-	maxLen := 0
-	for _, d := range depts {
-		if len(deptMap[d]) > maxLen {
-			maxLen = len(deptMap[d])
-		}
-	}
-	used := make(map[string]bool)
-	for i := 0; i < maxLen; i++ {
-		for _, d := range depts {
-			if i < len(deptMap[d]) {
-				stu := deptMap[d][i]
-				if !used[stu.StudentID] {
-					interleaved = append(interleaved, stu)
-					used[stu.StudentID] = true
-				}
-			}
-		}
-	}
 	for _, s := range students {
-		if !used[s.StudentID] {
-			interleaved = append(interleaved, s)
-			used[s.StudentID] = true
+		if _, ok := deptMap[s.Department]; !ok {
+			depts = append(depts, s.Department)
 		}
+		deptMap[s.Department] = append(deptMap[s.Department], s)
 	}
-	// Fill seats in snake pattern
-	n := len(interleaved)
+	studentCount := len(students)
 	studentIndex := 0
-	for i := 0; i < room.Rows && studentIndex < n; i++ {
-		if i%2 == 0 {
-			// Left to right
-			for j := 0; j < room.Columns && studentIndex < n; j++ {
-				seatIndex := i*room.Columns + j
-				seats[seatIndex] = Seat{
-					Row:       i + 1,
-					Column:    j + 1,
-					StudentID: interleaved[studentIndex].StudentID,
-					IsEmpty:   false,
+	deptIdx := 0
+	for i := 0; i < room.Rows; i++ {
+		if i%2 == 0 { // Even row: left-to-right
+			for j := 0; j < room.Columns; j++ {
+				seatIdx := i*room.Columns + j
+				if studentIndex < studentCount {
+					// Find next department with students left
+					tries := 0
+					for tries < len(depts) {
+						dept := depts[deptIdx%len(depts)]
+						if len(deptMap[dept]) > 0 {
+							s := deptMap[dept][0]
+							deptMap[dept] = deptMap[dept][1:]
+							seats[seatIdx] = Seat{
+								Row:       i + 1,
+								Column:    j + 1,
+								StudentID: s.StudentID,
+								IsEmpty:   false,
+							}
+							studentIndex++
+							deptIdx++
+							break
+						} else {
+							deptIdx++
+							tries++
+						}
+					}
+					if tries == len(depts) {
+						// No students left in any department
+						seats[seatIdx] = Seat{
+							Row:     i + 1,
+							Column:  j + 1,
+							IsEmpty: true,
+						}
+					}
+				} else {
+					seats[seatIdx] = Seat{
+						Row:     i + 1,
+						Column:  j + 1,
+						IsEmpty: true,
+					}
 				}
-				studentIndex++
 			}
-		} else {
-			// Right to left
-			for j := room.Columns - 1; j >= 0 && studentIndex < n; j-- {
-				seatIndex := i*room.Columns + j
-				seats[seatIndex] = Seat{
-					Row:       i + 1,
-					Column:    j + 1,
-					StudentID: interleaved[studentIndex].StudentID,
-					IsEmpty:   false,
+		} else { // Odd row: right-to-left
+			for j := room.Columns - 1; j >= 0; j-- {
+				seatIdx := i*room.Columns + j
+				if studentIndex < studentCount {
+					// Find next department with students left
+					tries := 0
+					for tries < len(depts) {
+						dept := depts[deptIdx%len(depts)]
+						if len(deptMap[dept]) > 0 {
+							s := deptMap[dept][0]
+							deptMap[dept] = deptMap[dept][1:]
+							seats[seatIdx] = Seat{
+								Row:       i + 1,
+								Column:    j + 1,
+								StudentID: s.StudentID,
+								IsEmpty:   false,
+							}
+							studentIndex++
+							deptIdx++
+							break
+						} else {
+							deptIdx++
+							tries++
+						}
+					}
+					if tries == len(depts) {
+						// No students left in any department
+						seats[seatIdx] = Seat{
+							Row:     i + 1,
+							Column:  j + 1,
+							IsEmpty: true,
+						}
+					}
+				} else {
+					seats[seatIdx] = Seat{
+						Row:     i + 1,
+						Column:  j + 1,
+						IsEmpty: true,
+					}
 				}
-				studentIndex++
 			}
-		}
-	}
-	// Mark remaining seats as empty
-	for i := studentIndex; i < room.Rows*room.Columns; i++ {
-		row := i / room.Columns
-		col := i % room.Columns
-		seats[i] = Seat{
-			Row:     row + 1,
-			Column:  col + 1,
-			IsEmpty: true,
 		}
 	}
 	return seats
+}
+
+// generateSnakeSeating arranges students to minimize same-department adjacency in both rows and columns.
+func (s *SeatingService) generateSnakeSeating(room *Room, students []StudentWithGroup) ([]Seat, error) {
+	fmt.Printf("[DEBUG] generateSnakeSeating (robust empty seats) CALLED for room: %s with %d students\n", room.Name, len(students))
+	seats := make([]Seat, room.Rows*room.Columns)
+	// Group students by department
+	deptMap := map[string][]StudentWithGroup{}
+	for _, s := range students {
+		deptMap[s.Department] = append(deptMap[s.Department], s)
+	}
+	// Helper: get department of a student by StudentID
+	studentDept := map[string]string{}
+	for _, s := range students {
+		studentDept[s.StudentID] = s.Department
+	}
+	for i := 0; i < room.Rows; i++ {
+		for j := 0; j < room.Columns; j++ {
+			seatIdx := i*room.Columns + j
+			// Check adjacent seats (above and left)
+			adjDepts := map[string]bool{}
+			if i > 0 {
+				above := seats[(i-1)*room.Columns+j]
+				if above.StudentID != "" {
+					if dept, ok := studentDept[above.StudentID]; ok {
+						adjDepts[dept] = true
+					}
+				}
+			}
+			if j > 0 {
+				left := seats[i*room.Columns+(j-1)]
+				if left.StudentID != "" {
+					if dept, ok := studentDept[left.StudentID]; ok {
+						adjDepts[dept] = true
+					}
+				}
+			}
+			// Find all departments with students left that are NOT adjacent
+			candidates := []string{}
+			for dept, group := range deptMap {
+				if len(group) > 0 && !adjDepts[dept] {
+					candidates = append(candidates, dept)
+				}
+			}
+			if len(candidates) == 0 {
+				// No valid department, leave seat empty
+				seats[seatIdx] = Seat{Row: i + 1, Column: j + 1, IsEmpty: true}
+				continue
+			}
+			// Pick the first available department
+			dept := candidates[0]
+			s := deptMap[dept][0]
+			deptMap[dept] = deptMap[dept][1:]
+			seats[seatIdx] = Seat{
+				Row:       i + 1,
+				Column:    j + 1,
+				StudentID: s.StudentID,
+				IsEmpty:   false,
+			}
+		}
+	}
+	// After assignment, check if any students remain unassigned
+	unassigned := 0
+	for _, group := range deptMap {
+		unassigned += len(group)
+	}
+	if unassigned > 0 {
+		return nil, fmt.Errorf("Not all students can be accommodated with the current constraints. Unassigned students: %d", unassigned)
+	}
+	return seats, nil
 }
 
 // GetSeatingPlan retrieves a seating plan by ID.

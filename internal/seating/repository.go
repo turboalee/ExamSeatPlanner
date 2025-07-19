@@ -270,6 +270,7 @@ func (r *SeatingRepository) UpdateSeatingPlan(ctx context.Context, plan *Seating
 
 // FindSeatingPlansByStudentID returns seating plans where any seat.student_id matches the given StudentID
 func (r *SeatingRepository) FindSeatingPlansByStudentID(ctx context.Context, studentID string) ([]*SeatingPlan, error) {
+	// Try direct query first
 	filter := bson.M{"seats.student_id": studentID}
 	cursor, err := r.seatingPlansCollection.Find(ctx, filter)
 	if err != nil {
@@ -279,7 +280,29 @@ func (r *SeatingRepository) FindSeatingPlansByStudentID(ctx context.Context, stu
 	if err := cursor.All(ctx, &plans); err != nil {
 		return nil, err
 	}
-	return plans, nil
+	if len(plans) > 0 {
+		return plans, nil
+	}
+	// If no plans found, fetch all and filter in Go (robust to type mismatches)
+	allPlans, err := r.GetAllSeatingPlans(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var matched []*SeatingPlan
+	for _, plan := range allPlans {
+		for _, room := range plan.Rooms {
+			for _, seat := range room.Seats {
+				if seat.StudentID != "" && studentID != "" && (seat.StudentID == studentID || seat.StudentID == string(studentID) || string(seat.StudentID) == studentID) {
+					matched = append(matched, plan)
+					break // Only need one seat match per plan
+				}
+			}
+			if len(matched) > 0 && matched[len(matched)-1] == plan {
+				break
+			}
+		}
+	}
+	return matched, nil
 }
 
 // DeleteSeatingPlan deletes a seating plan by its ID from the seatingPlansCollection.
