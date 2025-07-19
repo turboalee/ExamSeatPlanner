@@ -140,6 +140,24 @@ func (h *SeatingHandler) GetSeatingPlan(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Seating plan not found"})
 	}
 
+	// --- NEW: Attach student_lists to each room ---
+	for i, room := range plan.Rooms {
+		// Find the exam room assignment for this exam and room
+		var examRoomObj struct {
+			StudentListIDs []primitive.ObjectID `bson:"student_list_ids"`
+		}
+		err := h.service.repo.examRoomsCollection.FindOne(context.Background(), bson.M{"exam_id": plan.ExamID, "room_id": room.RoomID}).Decode(&examRoomObj)
+		if err == nil && len(examRoomObj.StudentListIDs) > 0 {
+			var studentLists []StudentList
+			for _, objID := range examRoomObj.StudentListIDs {
+				studentList, _ := h.service.repo.FindStudentListByID(context.Background(), objID)
+				if studentList != nil {
+					studentLists = append(studentLists, *studentList)
+				}
+			}
+			plan.Rooms[i].StudentLists = studentLists
+		}
+	}
 	return c.JSON(http.StatusOK, plan)
 }
 

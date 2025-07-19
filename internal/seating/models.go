@@ -83,6 +83,7 @@ type SeatingPlanRoom struct {
 	Invigilators       []primitive.ObjectID `bson:"invigilators" json:"invigilators"`
 	InvigilatorDetails []UserBasicInfo      `bson:"invigilator_details" json:"invigilatorDetails"`
 	Seats              []Seat               `bson:"seats" json:"seats"`
+	StudentLists       []StudentList        `bson:"student_lists,omitempty" json:"student_lists,omitempty"`
 }
 
 // SeatingPlan represents a seating arrangement for an exam (now includes all rooms)
