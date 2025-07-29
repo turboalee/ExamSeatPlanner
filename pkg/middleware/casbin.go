@@ -59,21 +59,31 @@ func containsAllSections(s string) bool {
 func InitCasbinEnforcer() (*casbin.Enforcer, error) {
 	var err error
 	enforcerOnce.Do(func() {
-		// Defensive check: ensure rbac_policy.csv exists
-		if _, statErr := os.Stat("rbac_policy.csv"); os.IsNotExist(statErr) {
-			log.Fatalf("[FATAL] rbac_policy.csv not found: %v", statErr)
+		// Log the current working directory for debugging
+		if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+			log.Printf("[Casbin] Current working directory: %s", cwd)
+		} else {
+			log.Printf("[Casbin] Could not get working directory: %v", cwdErr)
+		}
+		// Use environment variable for policy path if set
+		policyPath := os.Getenv("CASBIN_POLICY_PATH")
+		if policyPath == "" {
+			policyPath = "rbac_policy.csv"
+		}
+		// Defensive check: ensure policy file exists
+		if _, statErr := os.Stat(policyPath); os.IsNotExist(statErr) {
+			log.Fatalf("[FATAL] %s not found: %v", policyPath, statErr)
 		}
 		m, errM := model.NewModelFromString(getCasbinModel())
 		if errM != nil {
 			err = errM
 			return
 		}
-		adapter := fileadapter.NewAdapter("rbac_policy.csv")
+		adapter := fileadapter.NewAdapter(policyPath)
 		enforcer, err = casbin.NewEnforcer(m, adapter)
 		if err != nil || enforcer == nil {
 			log.Fatalf("[FATAL] Error creating Casbin enforcer: %v", err)
 		}
-		// Register keyMatch function for path matching
 		enforcer.AddFunction("keyMatch", util.KeyMatchFunc)
 		policies, _ := enforcer.GetPolicy()
 		log.Printf("Casbin enforcer created. Policy count: %d", len(policies))
