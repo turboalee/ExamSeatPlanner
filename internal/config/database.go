@@ -38,11 +38,11 @@ func NewMongoDBClient(lc fx.Lifecycle, config *MongoDBConfig) (*MongoDBClient, *
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		fmt.Errorf("Failed to connect to MongoDB")
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		fmt.Errorf("Failed to ping MongoDB")
+		log.Fatalf("Failed to ping MongoDB: %v", err)
 	}
 
 	log.Println("Connected to MongoDB")
