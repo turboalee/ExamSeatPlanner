@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -80,23 +81,39 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 
 func (h *AuthHandler) Profile(c echo.Context) error {
 	user := c.Get("user")
+	log.Printf("[Profile] user context: %+v", user)
 	claims, ok := user.(*JWTClaims)
 	if !ok || claims == nil {
+		log.Printf("[Profile] Invalid or missing JWT claims: %+v", user)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or missing token"})
 	}
-	// Look up the user in the database to get their MongoDB ID
 	ctx := c.Request().Context()
+	log.Printf("[Profile] Looking up user by email: %s", claims.Email)
 	foundUser, err := h.service.repo.FindByEmail(ctx, claims.Email)
-	if err != nil || foundUser == nil {
+	if err != nil {
+		log.Printf("[Profile] Error in FindByEmail: %v", err)
+	}
+	if foundUser == nil {
+		log.Printf("[Profile] User not found for email: %s", claims.Email)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "User not found"})
 	}
+	log.Printf("[Profile] Found user: %+v", foundUser)
+	var userID, cmsID string
+	if foundUser.ID.IsZero() {
+		log.Printf("[Profile] foundUser.ID is zero value!")
+		userID = ""
+	} else {
+		userID = foundUser.ID.Hex()
+	}
+	cmsID = foundUser.CMSID
+	log.Printf("[Profile] Returning user profile: email=%s, role=%s, faculty=%s, name=%s, _id=%s, cms_id=%s", claims.Email, claims.Role, claims.Faculty, claims.Name, userID, cmsID)
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Authenticated User",
 		"email":   claims.Email,
 		"role":    claims.Role,
 		"faculty": claims.Faculty,
 		"name":    claims.Name,
-		"_id":     foundUser.ID.Hex(), // Add MongoDB ObjectID as string
-		"cms_id":  foundUser.CMSID,    // Add CMSID for students
+		"_id":     userID,
+		"cms_id":  cmsID,
 	})
 }
