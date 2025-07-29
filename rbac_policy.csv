@@ -53,4 +53,6 @@ p, admin, /api/notifications/:id, DELETE, allow
 p, admin, /api/notifications/*, DELETE, allow
 p, admin, /api/seating/notifications, GET, allow
 p, staff, /api/seating/notifications, GET, allow
-
+p, staff, /api/seating/student-lists/*/students, POST, allow
+p, staff, /api/seating/student-lists/*/students, PUT, allow
+p, staff, /api/seating/student-lists/*/students, DELETE, allow
