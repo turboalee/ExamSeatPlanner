@@ -8,9 +8,16 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"go.uber.org/fx"
+	"os"
+	"log"
 )
 
 func main() {
+	if cwd, err := os.Getwd(); err == nil {
+		log.Printf("[APP START] Current working directory: %s", cwd)
+	} else {
+		log.Printf("[APP START] Could not get working directory: %v", err)
+	}
 	bootstrap.Loadenv()
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
