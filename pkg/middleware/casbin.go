@@ -4,6 +4,7 @@ import (
 	"ExamSeatPlanner/internal/auth"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 
@@ -58,6 +59,10 @@ func containsAllSections(s string) bool {
 func InitCasbinEnforcer() (*casbin.Enforcer, error) {
 	var err error
 	enforcerOnce.Do(func() {
+		// Defensive check: ensure rbac_policy.csv exists
+		if _, statErr := os.Stat("rbac_policy.csv"); os.IsNotExist(statErr) {
+			log.Fatalf("[FATAL] rbac_policy.csv not found: %v", statErr)
+		}
 		m, errM := model.NewModelFromString(getCasbinModel())
 		if errM != nil {
 			err = errM
@@ -65,14 +70,13 @@ func InitCasbinEnforcer() (*casbin.Enforcer, error) {
 		}
 		adapter := fileadapter.NewAdapter("rbac_policy.csv")
 		enforcer, err = casbin.NewEnforcer(m, adapter)
-		if err != nil {
-			log.Println("Error creating Casbin enforcer:", err)
-		} else {
-			// Register keyMatch function for path matching
-			enforcer.AddFunction("keyMatch", util.KeyMatchFunc)
-			policies, _ := enforcer.GetPolicy()
-			log.Printf("Casbin enforcer created. Policy count: %d", len(policies))
+		if err != nil || enforcer == nil {
+			log.Fatalf("[FATAL] Error creating Casbin enforcer: %v", err)
 		}
+		// Register keyMatch function for path matching
+		enforcer.AddFunction("keyMatch", util.KeyMatchFunc)
+		policies, _ := enforcer.GetPolicy()
+		log.Printf("Casbin enforcer created. Policy count: %d", len(policies))
 	})
 	return enforcer, err
 }
